@@ -10,3 +10,4 @@
 4. Now we can create folders for work
 5. We need to create requirements.txt file to download/install all the packages
 6. Add .gitignore file to skip sensitive files data
+7. THis is new comment
