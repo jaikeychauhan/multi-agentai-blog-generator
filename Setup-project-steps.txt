@@ -1,0 +1,12 @@
+1. Create .env file to have all the API Keys for example:
+    OPENAI_API_KEY="key-value"
+
+2. Create the Virtual Environment using below command
+    Command: python -m venv env
+3. Now activate the V.E. using below command
+   command:  .\env\Scripts\Activate.ps1
+   NOTE: If get any error the execute "Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass"
+   Then try again now
+4. Now we can create folders for work
+5. We need to create requirements.txt file to download/install all the packages
+6. Add .gitignore file to skip sensitive files data
