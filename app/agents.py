@@ -1,6 +1,9 @@
 import os
 from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
+from state import PlagiarismReportSchema
+import json
+from langchain_core.messages import HumanMessage, SystemMessage
 
 ### Get LLM
 def get_llm(modelname:str="openai/gpt-oss-20b",temprature:float=0.5):
@@ -95,3 +98,64 @@ def editor_agent(llm:ChatGroq,topic:str,draft:str="")->str:
         "draft":draft
     })
     return result.content
+
+### ***********************Duplicate Checker Agent*******************************
+system_instruction = """You are a Blog Duplicate Content Checker Agent. Using the content provided by the editor, check the content for duplicacy and plagiarism.
+Rules:
+1. VERBATIM PATTERNS: Identify any long, highly specific phrasing, clichés, or generic boilerplate text that appears directly copied or unoriginal.
+2. CITATION REQUIREMENT: Check all statistics, direct quotes, studies, and non-obvious facts. Every claim must have a clear source attribution or context anchor (e.g., "According to [Source]").
+3. PATCHWRITING & PARAPHRASING: Detect shallow rephrasing where the sentence structure matches common online sources without adding original insight.
+4. BRAND & TRADEMARK RISKS: Flag any unlicensed use of proprietary terms, copyrighted frameworks, or trademarked material that requires disclaimers.
+
+CRITICAL: Return ONLY valid raw JSON matching this exact schema (no markdown formatting, no conversational text):
+{
+  "originality_score": <number between 0 and 100>,
+  "pass_status": <true if originality_score >= 85, else false>,
+  "flagged_issues": [
+    {
+      "type": "<"Verbatim Phrasing" | "Missing Citation" | "Shallow Paraphrasing" | "Trademark Risk">",
+      "text_snippet": "<exact passage from the blog>",
+      "reason": "<why this was flagged>",
+      "remedy_instruction": "<actionable instruction for the Writer agent to fix it>"
+    }
+  ],
+  "summary_feedback": "<brief overall evaluation for the writer/editor>"
+}"""
+def duplicate_checker_agent(llm:ChatGroq,topic:str,final_blog:str="")-> dict:
+    user_content = f"Topic: {topic}\n\nFinal Blog:\n{final_blog}"
+    result = llm.invoke([
+        SystemMessage(content=system_instruction),
+        HumanMessage(content=user_content)
+    ])
+
+    # result=chain.invoke({
+        
+    #     "topic":topic,
+    #     "final_blog":final_blog
+    # })
+    raw_content = result.content.strip()
+
+    # Clean up markdown code blocks if the LLM wrapped the JSON in ```json ... ```
+    if raw_content.startswith("```json"):
+        raw_content = raw_content[7:]
+    if raw_content.startswith("```"):
+        raw_content = raw_content[3:]
+    if raw_content.endswith("```"):
+        raw_content = raw_content[:-3]
+    
+    raw_content = raw_content.strip()
+    try:
+        # Validate and parse using Pydantic
+        parsed_report = PlagiarismReportSchema.model_validate_json(raw_content)
+        return parsed_report.dict()
+    except Exception as e:
+        print(f"⚠️ JSON Parsing Fallback Error: {e}")
+        print(f"Raw response was: {raw_content}")
+        # Fallback safe dictionary if parsing fails
+        return {
+            "originality_score": 50.0,
+            "pass_status": False,
+            "flagged_issues": [],
+            "summary_feedback": "Error parsing JSON report from duplicate checker agent."
+        }
+    

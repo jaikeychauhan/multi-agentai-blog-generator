@@ -137,6 +137,12 @@ if stlt.session_state.started:
                     "Review the Draft blog before the Editor creates the final blog."
                 )
                 review_content=pending_interrupts.get("draft","")
+            elif stage == "plagiarism_review":
+                stlt.subheader("Step 3- Duplicate Content Review")
+                stlt.info(
+                    "Review the Duplicate Checker feedback before the final blog."
+                )
+                review_content=pending_interrupts.get("flagged_issues")
             else:
                 stlt.subheader(f"Human review: {stage}")
                 review_content = pending_interrupts
@@ -157,7 +163,18 @@ if stlt.session_state.started:
                 stlt.caption(captionText)
 
             stlt.markdown("### Your decision")
-            
+
+            if stage == "plagiarism_review":
+                if stlt.button("💡 Auto-fill text with AI Remedy Instructions", use_container_width=True):
+                    flagged_issues = pending_interrupts.get("flagged_issues", [])
+                    auto_text = "Please fix the following duplicate/plagiarism issues:\n"
+                    for idx, issue in enumerate(flagged_issues, 1):
+                        auto_text += f"{idx}. [{issue.get('type')}] {issue.get('remedy_instruction')}\n"
+                    
+                    # Update Streamlit's session state for this text area key so it populates instantly
+                    stlt.session_state[f"feedback_{stage}"] = auto_text
+                    stlt.rerun()
+                    
             feedback = stlt.text_area(
                 "Feedback",
                 key=f"feedback_{stage}",
@@ -166,6 +183,7 @@ if stlt.session_state.started:
                     "Leave blank if you only want to approve."
                 ),
             )
+
             col1, col2 = stlt.columns(2)
             with col1:
                 approve = stlt.button("Approve and continue",type="primary", use_container_width=True, key=f"approve_{stage}",)
